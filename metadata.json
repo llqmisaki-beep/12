@@ -1,0 +1,5 @@
+{
+  "name": "ClipEssence AI",
+  "description": "一款智能视频二创工具，提取内容精华，利用 Gemini 生成总结，并自动生成适合社交媒体传播的金句拼图和知识卡片。",
+  "requestFramePermissions": []
+}
