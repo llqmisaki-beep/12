@@ -122,7 +122,7 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
                     <div>
                         <p className="font-bold mb-1">如何获取文案？</p>
                         <ul className="list-disc pl-4 space-y-1 text-xs text-indigo-300">
-                            <li>在 YouTube 视频下方，点击 <strong>...更多</strong> -> <strong>显示字幕</strong>。</li>
+                            <li>在 YouTube 视频下方，点击 <strong>...更多</strong> &rarr; <strong>显示字幕</strong>。</li>
                             <li>复制右侧显示的字幕文字，粘贴到下方。</li>
                             <li>或者，直接用您的话概括视频讲了什么（只需 200 字左右）。</li>
                         </ul>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ContentSummary, ImageMode, VideoMetadata } from '../types';
-import { Layout, Film, Download, AlignJustify, Image as ImageIcon, Smartphone, CreditCard, RefreshCw, ArrowLeft, Type, Shuffle, Trash2, Sparkles, X, Upload, ChevronLeft, Layers, Zap, Aperture, Grid } from 'lucide-react';
+import { Layout, Film, Download, AlignJustify, Image as ImageIcon, Smartphone, CreditCard, RefreshCw, ArrowLeft, Type, Shuffle, X, Upload, ChevronLeft, Zap, Aperture, Grid, FileText, Layers, Sparkles } from 'lucide-react';
 
 interface ImageGenerationStepProps {
   summary: ContentSummary;
@@ -10,8 +10,7 @@ interface ImageGenerationStepProps {
   onBack: () => void;
 }
 
-type StitchStyle = 'CLASSIC'; // Consolidated into one optimized style
-type InfographicStyle = 'COVER' | 'MEMO' | 'CARD' | 'MINIMAL' | 'NEON' | 'GRADIENT' | 'POLAROID';
+type InfographicStyle = 'COVER' | 'MEMO' | 'CARD' | 'MINIMAL' | 'NEON' | 'GRADIENT' | 'POLAROID' | 'MAGAZINE' | 'PAPER' | 'GLASS';
 type FontStyle = 'SANS' | 'SERIF' | 'CALLIGRAPHY' | 'HAPPY' | 'ELEGANT';
 
 type SeedKey = 'hero' | 'frame1' | 'frame2' | 'frame3' | 'frame4';
@@ -91,10 +90,7 @@ const DeletableWidget: React.FC<{
     onDelete: (id: string) => void;
     isSelected: boolean;
     onSelect: (id: string) => void;
-    initialX?: number;
-    initialY?: number;
-}> = ({ id, children, className, style, isHidden, onDelete, isSelected, onSelect, initialX = 0, initialY = 0 }) => {
-    // Initialize draggable with specific offsets if needed, though currently simplified to 0,0 start relative to parent flow or absolute
+}> = ({ id, children, className, style, isHidden, onDelete, isSelected, onSelect }) => {
     const { position, onMouseDown, style: dragStyle } = useDraggable();
     
     if (isHidden) return null;
@@ -160,10 +156,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
     if (metadata.platform === 'youtube') {
         const videoId = extractYoutubeId(metadata.url);
         if (videoId) {
-             // For subtitles, we might want varied frames. 
-             // Mocking frame variation by using different quality thumbnails or just same thumb for demo limitation
-             // In a real app with backend, we'd have exact timestamps.
-             const variants = ['maxresdefault.jpg', 'hqdefault.jpg', 'sddefault.jpg', 'mqdefault.jpg']; 
+             const variants = ['maxresdefault.jpg', 'hqdefault.jpg', 'sddefault.jpg']; 
              return `https://img.youtube.com/vi/${videoId}/${variants[seed % variants.length]}`;
         }
     }
@@ -327,20 +320,22 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
     }
   };
 
-  // Render Templates Logic
+  // --- Render Templates ---
   const renderInfographicContent = () => {
-    // --- 1. MEMO (Apple Notes) ---
+    
+    // 1. MEMO (Apple Notes) - Optimized for flow
     if (infoStyle === 'MEMO') {
         return (
             <div className="w-full h-full bg-[#f2f2f7] flex flex-col relative overflow-hidden font-sans">
                 <div className="absolute inset-0 pointer-events-none opacity-[0.3] bg-white mix-blend-overlay"></div>
-                <div className="px-4 py-3 flex items-center justify-between text-[#e0aa3e] z-10 bg-[#f2f2f7]/90 backdrop-blur-sm border-b border-zinc-200/50">
+                <div className="px-4 py-3 flex items-center justify-between text-[#e0aa3e] z-10 bg-[#f2f2f7]/90 backdrop-blur-sm border-b border-zinc-200/50 shrink-0">
                         <div className="flex items-center gap-1 text-xs font-medium"><ChevronLeft className="w-4 h-4" /> 文件夹</div>
                         <div className="text-xs font-semibold text-black">备忘录</div>
                         <div className="w-6 h-6 rounded-full border border-[#e0aa3e] flex items-center justify-center text-[10px]">●●●</div>
                 </div>
+                {/* Use a single container to prevent overlap */}
                 <div className="m-4 mt-2 flex-1 bg-white rounded-xl shadow-sm p-6 relative z-10 overflow-hidden">
-                    <DeletableWidget id="memo-content-block" isHidden={hiddenFields["memo-content-block"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="memo-content-block"} onSelect={(id)=>setSelectedElementId(id)} className="w-full">
+                    <DeletableWidget id="memo-container" isHidden={hiddenFields["memo-container"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="memo-container"} onSelect={(id)=>setSelectedElementId(id)} className="w-full h-full">
                         <div className="space-y-5">
                             <div className="text-xs text-zinc-400 font-medium text-center mb-4">
                                 {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })} · {new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
@@ -365,26 +360,28 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // --- 2. CARD (Knowledge Card) ---
+    // 2. CARD (Knowledge) - Fixed Layout
     if (infoStyle === 'CARD') {
         return (
             <div className="w-full h-full bg-zinc-50 flex flex-col relative border-[12px]" style={{ borderColor: highlightColor }}>
+                 {/* Top Section - Draggable */}
                 <div className="p-8 pb-12 text-center relative overflow-hidden shrink-0" style={{ backgroundColor: highlightColor }}>
-                        <DeletableWidget id="card-title" className="relative z-10" isHidden={hiddenFields["card-title"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="card-title"} onSelect={(id)=>setSelectedElementId(id)}>
-                        <EditableText value={localSummary.title} path="title" colorOverride='#FFFFFF' className="text-3xl font-black leading-tight text-shadow-sm" />
+                        <DeletableWidget id="card-title" className="relative z-10 w-full" isHidden={hiddenFields["card-title"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="card-title"} onSelect={(id)=>setSelectedElementId(id)}>
+                            <EditableText value={localSummary.title} path="title" colorOverride='#FFFFFF' className="text-3xl font-black leading-tight text-shadow-sm" />
                         </DeletableWidget>
                 </div>
+                {/* Content Section - Draggable Container */}
                 <div className="flex-1 bg-white -mt-6 mx-6 mb-6 rounded-t-2xl shadow-xl p-6 flex flex-col relative z-20 overflow-hidden">
-                    <DeletableWidget id="card-content-block" className="w-full" isHidden={hiddenFields["card-content-block"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="card-content-block"} onSelect={(id)=>setSelectedElementId(id)}>
+                    <DeletableWidget id="card-content" className="w-full relative flex-1 flex flex-col" isHidden={hiddenFields["card-content"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="card-content"} onSelect={(id)=>setSelectedElementId(id)}>
                         <div className="flex flex-col gap-6">
-                            <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-100">
+                            <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-100 shrink-0">
                                 <div className="flex items-center gap-2 mb-2 opacity-80">
                                     <Sparkles className="w-4 h-4" style={{ color: highlightColor }} />
                                     <span className="text-xs font-bold uppercase" style={{ color: highlightColor }}>核心摘要</span>
                                 </div>
                                 <EditableText value={localSummary.coreIdea} path="coreIdea" colorOverride="#52525b" className="text-sm leading-relaxed font-medium" />
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-4 shrink-0">
                                 {localSummary.keyPoints.map((point, i) => (
                                     <div key={i} className="flex gap-3">
                                         <div className="flex-shrink-0 w-6 h-6 rounded-full border-2 font-bold flex items-center justify-center text-xs bg-opacity-10" style={{ borderColor: highlightColor, color: highlightColor, backgroundColor: `${highlightColor}20` }}>{i+1}</div>
@@ -394,8 +391,8 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                             </div>
                         </div>
                     </DeletableWidget>
-                    <div className="mt-auto pt-6 shrink-0">
-                        <div className="h-24 rounded-xl overflow-hidden relative">
+                    <div className="mt-auto pt-6 shrink-0 h-24">
+                        <div className="h-full rounded-xl overflow-hidden relative">
                             <EditableImage seedKey="frame1" className="w-full h-full opacity-80" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                         </div>
@@ -405,12 +402,13 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // --- 3. MINIMAL (New) ---
+    // 3. MINIMAL - One block flow
     if (infoStyle === 'MINIMAL') {
         return (
              <div className="w-full h-full bg-[#FDFBF7] flex flex-col p-8 relative border-8 border-white shadow-inner">
                  <div className="absolute top-0 left-0 w-full h-2 bg-zinc-900"></div>
-                 <DeletableWidget id="minimal-block" className="w-full mt-8" isHidden={hiddenFields["minimal-block"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="minimal-block"} onSelect={(id)=>setSelectedElementId(id)}>
+                 
+                 <DeletableWidget id="minimal-container" className="w-full mt-8 flex flex-col gap-10" isHidden={hiddenFields["minimal-container"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="minimal-container"} onSelect={(id)=>setSelectedElementId(id)}>
                      <div className="text-center space-y-6">
                         <div className="inline-block border-b-2 border-zinc-900 pb-1 mb-2">
                             <span className="text-xs font-bold tracking-[0.3em] text-zinc-500 uppercase">ESSENCE</span>
@@ -419,20 +417,17 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                         <div className="w-12 h-1 bg-zinc-200 mx-auto rounded-full"></div>
                         <EditableText value={localSummary.coreIdea} path="coreIdea" colorOverride="#52525b" className="text-sm leading-relaxed text-zinc-600 max-w-[90%] mx-auto font-serif-sc italic" />
                      </div>
+
+                     <div className="space-y-6 pl-4 border-l border-zinc-200 ml-2">
+                        {localSummary.keyPoints.map((point, i) => (
+                            <div key={i} className="relative">
+                                <div className="absolute -left-[21px] top-1.5 w-2 h-2 bg-zinc-300 rounded-full ring-4 ring-[#FDFBF7]"></div>
+                                <EditableText value={point} path={`keyPoints.${i}`} colorOverride="#27272a" className="text-base font-medium leading-relaxed" />
+                            </div>
+                        ))}
+                     </div>
                  </DeletableWidget>
                  
-                 <div className="mt-10 flex-1">
-                     <DeletableWidget id="minimal-list" className="w-full" isHidden={hiddenFields["minimal-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="minimal-list"} onSelect={(id)=>setSelectedElementId(id)}>
-                        <div className="space-y-6 pl-4 border-l border-zinc-200 ml-2">
-                            {localSummary.keyPoints.map((point, i) => (
-                                <div key={i} className="relative">
-                                    <div className="absolute -left-[21px] top-1.5 w-2 h-2 bg-zinc-300 rounded-full ring-4 ring-[#FDFBF7]"></div>
-                                    <EditableText value={point} path={`keyPoints.${i}`} colorOverride="#27272a" className="text-base font-medium leading-relaxed" />
-                                </div>
-                            ))}
-                        </div>
-                     </DeletableWidget>
-                 </div>
                  <div className="mt-auto text-center opacity-30">
                      <Film className="w-6 h-6 mx-auto text-zinc-900" />
                  </div>
@@ -440,16 +435,15 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // --- 4. NEON (New) ---
+    // 4. NEON - One block flow
     if (infoStyle === 'NEON') {
         return (
              <div className="w-full h-full bg-[#050505] flex flex-col p-6 relative overflow-hidden border-2 border-[#050505]">
                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
-                 {/* Neon Borders */}
                  <div className="absolute top-4 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-[#00ff9d] to-transparent shadow-[0_0_10px_#00ff9d]"></div>
                  <div className="absolute bottom-4 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-[#ff00ff] to-transparent shadow-[0_0_10px_#ff00ff]"></div>
 
-                 <DeletableWidget id="neon-block" className="w-full mt-10 relative z-10" isHidden={hiddenFields["neon-block"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="neon-block"} onSelect={(id)=>setSelectedElementId(id)}>
+                 <DeletableWidget id="neon-container" className="w-full mt-10 relative z-10 flex flex-col gap-8" isHidden={hiddenFields["neon-container"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="neon-container"} onSelect={(id)=>setSelectedElementId(id)}>
                     <div className="border border-zinc-800 bg-black/50 backdrop-blur-xl p-6 rounded-none relative">
                         <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-[#00ff9d]"></div>
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-[#ff00ff]"></div>
@@ -457,37 +451,31 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                         <div className="text-[#00ff9d] text-xs font-mono mb-2">// CORE_DATA_DUMP</div>
                         <EditableText value={localSummary.coreIdea} path="coreIdea" colorOverride="#a1a1aa" className="text-sm font-mono leading-relaxed" />
                     </div>
-                 </DeletableWidget>
 
-                 <div className="mt-8 flex-1 relative z-10">
-                    <DeletableWidget id="neon-list" className="w-full" isHidden={hiddenFields["neon-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="neon-list"} onSelect={(id)=>setSelectedElementId(id)}>
-                        <div className="space-y-4">
-                            {localSummary.keyPoints.map((point, i) => (
-                                <div key={i} className="flex items-center gap-4 bg-zinc-900/40 border border-zinc-800 p-3 hover:border-[#ff00ff]/50 transition-colors">
-                                    <div className="text-[#ff00ff] font-mono text-lg font-bold">0{i+1}</div>
-                                    <EditableText value={point} path={`keyPoints.${i}`} colorOverride="#e4e4e7" className="text-sm font-bold tracking-wide" />
-                                </div>
-                            ))}
-                        </div>
-                    </DeletableWidget>
-                 </div>
+                    <div className="space-y-4">
+                        {localSummary.keyPoints.map((point, i) => (
+                            <div key={i} className="flex items-center gap-4 bg-zinc-900/40 border border-zinc-800 p-3 hover:border-[#ff00ff]/50 transition-colors">
+                                <div className="text-[#ff00ff] font-mono text-lg font-bold">0{i+1}</div>
+                                <EditableText value={point} path={`keyPoints.${i}`} colorOverride="#e4e4e7" className="text-sm font-bold tracking-wide" />
+                            </div>
+                        ))}
+                    </div>
+                 </DeletableWidget>
              </div>
         );
     }
 
-    // --- 5. GRADIENT (New) ---
+    // 5. GRADIENT
     if (infoStyle === 'GRADIENT') {
         return (
             <div className="w-full h-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex flex-col p-8 relative text-white">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/noise-lines.png')] opacity-10 mix-blend-overlay"></div>
                 
-                <DeletableWidget id="grad-title" className="mt-12" isHidden={hiddenFields["grad-title"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="grad-title"} onSelect={(id)=>setSelectedElementId(id)}>
+                <DeletableWidget id="grad-container" className="mt-12 w-full flex flex-col gap-8" isHidden={hiddenFields["grad-container"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="grad-container"} onSelect={(id)=>setSelectedElementId(id)}>
                     <div className="bg-white/10 backdrop-blur-lg border border-white/20 p-6 rounded-2xl shadow-2xl">
                         <EditableText value={localSummary.title} path="title" colorOverride="#fff" className="text-4xl font-black leading-tight drop-shadow-md" />
                     </div>
-                </DeletableWidget>
 
-                <DeletableWidget id="grad-list" className="mt-8 w-full" isHidden={hiddenFields["grad-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="grad-list"} onSelect={(id)=>setSelectedElementId(id)}>
                     <div className="space-y-4">
                          {localSummary.keyPoints.map((point, i) => (
                             <div key={i} className="flex gap-4">
@@ -505,14 +493,16 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // --- 6. POLAROID (New) ---
+    // 6. POLAROID
     if (infoStyle === 'POLAROID') {
         return (
             <div className="w-full h-full bg-zinc-200 flex flex-col p-6 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-50"></div>
                 
-                <DeletableWidget id="polaroid-hero" className="w-full rotate-2 mt-4" isHidden={hiddenFields["polaroid-hero"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-hero"} onSelect={(id)=>setSelectedElementId(id)}>
-                    <div className="bg-white p-3 pb-10 shadow-xl shadow-black/10 transform transition-transform hover:scale-[1.02]">
+                {/* Stack widgets loosely but prevent overlap by manual spacing if user drags. 
+                    Here we give them initial positions that don't overlap */}
+                <DeletableWidget id="polaroid-hero" className="w-full rotate-2 mt-4 relative z-10" isHidden={hiddenFields["polaroid-hero"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-hero"} onSelect={(id)=>setSelectedElementId(id)}>
+                    <div className="bg-white p-3 pb-10 shadow-xl shadow-black/10">
                         <div className="aspect-video bg-zinc-100 overflow-hidden grayscale hover:grayscale-0 transition-all duration-500">
                              <EditableImage seedKey="hero" className="w-full h-full" />
                         </div>
@@ -522,7 +512,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                     </div>
                 </DeletableWidget>
 
-                <DeletableWidget id="polaroid-list" className="w-full mt-8 -rotate-1" isHidden={hiddenFields["polaroid-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-list"} onSelect={(id)=>setSelectedElementId(id)}>
+                <DeletableWidget id="polaroid-list" className="w-full mt-8 -rotate-1 relative z-10" isHidden={hiddenFields["polaroid-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-list"} onSelect={(id)=>setSelectedElementId(id)}>
                      <div className="bg-white p-6 shadow-lg shadow-black/5">
                         <div className="space-y-3">
                              {localSummary.keyPoints.slice(0,3).map((point, i) => (
@@ -538,40 +528,143 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
+    // 7. MAGAZINE (New) - Fashion Style
+    if (infoStyle === 'MAGAZINE') {
+        return (
+            <div className="w-full h-full bg-white flex flex-col relative font-serif-sc">
+                 {/* Full Background Image */}
+                 <div className="absolute inset-0">
+                    <EditableImage seedKey="hero" className="w-full h-full" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30"></div>
+                 </div>
+
+                 <div className="p-8 h-full flex flex-col justify-between relative z-10">
+                     <DeletableWidget id="mag-header" className="w-full border-t border-white/50 pt-4" isHidden={hiddenFields["mag-header"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="mag-header"} onSelect={(id)=>setSelectedElementId(id)}>
+                        <div className="flex justify-between text-white/80 text-xs tracking-[0.2em] font-sans mb-2">
+                            <span>ISSUE 01</span>
+                            <span>ESSENCE</span>
+                        </div>
+                     </DeletableWidget>
+
+                     <DeletableWidget id="mag-content" className="w-full text-center flex flex-col gap-6" isHidden={hiddenFields["mag-content"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="mag-content"} onSelect={(id)=>setSelectedElementId(id)}>
+                        <div>
+                            <EditableText value={localSummary.title} path="title" colorOverride="#fff" className="text-5xl font-serif-sc font-bold leading-tight drop-shadow-2xl" />
+                        </div>
+                        <div className="w-full h-[1px] bg-white/40"></div>
+                        <div className="grid grid-cols-1 gap-4 text-left">
+                            {localSummary.keyPoints.slice(0,3).map((point, i) => (
+                                <div key={i} className="text-white/90 text-sm font-medium leading-relaxed drop-shadow-md backdrop-blur-sm bg-black/10 p-2">
+                                     <EditableText value={point} path={`keyPoints.${i}`} />
+                                </div>
+                            ))}
+                        </div>
+                     </DeletableWidget>
+                 </div>
+            </div>
+        );
+    }
+
+    // 8. PAPER (New) - Retro Style
+    if (infoStyle === 'PAPER') {
+        return (
+            <div className="w-full h-full bg-[#fdf6e3] flex flex-col p-8 relative font-serif-sc border-[16px] border-[#eee8d5]">
+                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')]"></div>
+                 
+                 <DeletableWidget id="paper-container" className="w-full h-full flex flex-col gap-6" isHidden={hiddenFields["paper-container"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="paper-container"} onSelect={(id)=>setSelectedElementId(id)}>
+                     <div className="text-center border-b-4 border-black pb-6">
+                         <EditableText value={localSummary.title} path="title" colorOverride="#000" className="text-4xl font-bold leading-tight" />
+                         <div className="mt-2 text-xs tracking-widest text-zinc-500 uppercase">Daily Knowledge</div>
+                     </div>
+                     
+                     <div className="flex-1 space-y-6 pt-2">
+                        <div className="bg-[#eee8d5] p-4 border-l-4 border-black italic">
+                            <EditableText value={localSummary.coreIdea} path="coreIdea" colorOverride="#333" className="text-sm leading-relaxed" />
+                        </div>
+                        
+                        <div className="space-y-4">
+                            {localSummary.keyPoints.map((point, i) => (
+                                <div key={i} className="flex gap-3 items-baseline">
+                                    <span className="font-black text-xl">0{i+1}.</span>
+                                    <EditableText value={point} path={`keyPoints.${i}`} colorOverride="#000" className="text-base leading-relaxed border-b border-dashed border-zinc-400 pb-1" />
+                                </div>
+                            ))}
+                        </div>
+                     </div>
+
+                     <div className="h-32 shrink-0 border-2 border-black p-1 rotate-1 bg-white shadow-lg">
+                        <EditableImage seedKey="frame2" className="w-full h-full grayscale contrast-125" />
+                     </div>
+                 </DeletableWidget>
+            </div>
+        );
+    }
+
+    // 9. GLASS (New) - Modern UI
+    if (infoStyle === 'GLASS') {
+        return (
+            <div className="w-full h-full bg-black relative overflow-hidden flex items-center justify-center">
+                 {/* Colorful Blobs */}
+                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 opacity-80"></div>
+                 <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-400 rounded-full blur-[100px] opacity-50 animate-pulse"></div>
+                 <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-yellow-400 rounded-full blur-[120px] opacity-40 animate-pulse"></div>
+
+                 <DeletableWidget id="glass-card" className="w-[90%] h-[90%] relative z-10" isHidden={hiddenFields["glass-card"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="glass-card"} onSelect={(id)=>setSelectedElementId(id)}>
+                     <div className="w-full h-full bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl flex flex-col p-6 text-white">
+                        <div className="mb-6">
+                             <div className="inline-block px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold tracking-wider mb-3">FEATURED</div>
+                             <EditableText value={localSummary.title} path="title" colorOverride="#fff" className="text-3xl font-bold leading-tight text-shadow-sm" />
+                        </div>
+
+                        <div className="flex-1 space-y-4 overflow-hidden">
+                            {localSummary.keyPoints.map((point, i) => (
+                                <div key={i} className="bg-black/20 p-4 rounded-xl border border-white/5 hover:bg-black/30 transition-colors">
+                                    <EditableText value={point} path={`keyPoints.${i}`} colorOverride="#fff" className="text-sm font-medium leading-relaxed" />
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="mt-6 h-24 rounded-xl overflow-hidden border border-white/10">
+                             <EditableImage seedKey="hero" className="w-full h-full opacity-90" />
+                        </div>
+                     </div>
+                 </DeletableWidget>
+            </div>
+        );
+    }
+
     // --- Default: COVER ---
     return (
         <div className="w-full h-full relative">
             <EditableImage seedKey="hero" className="w-full h-full" />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/90 pointer-events-none"></div>
             
-            <DeletableWidget id="cover-header" className="top-12 left-6 right-6 z-20" isHidden={hiddenFields["cover-header"]} onDelete={(id) => setHiddenFields(prev => ({...prev, [id]: true}))} isSelected={selectedElementId === "cover-header"} onSelect={(id) => setSelectedElementId(id)}>
+            <DeletableWidget id="cover-header" className="top-12 left-6 right-6 z-20 w-auto" isHidden={hiddenFields["cover-header"]} onDelete={(id) => setHiddenFields(prev => ({...prev, [id]: true}))} isSelected={selectedElementId === "cover-header"} onSelect={(id) => setSelectedElementId(id)}>
                 <div className="inline-block px-3 py-1 bg-yellow-400 text-black font-black text-xs rounded-full mb-4 shadow-lg rotate-[-2deg]"># 必看精华</div>
                 <EditableText value={localSummary.title} path="title" className="text-5xl font-black text-white leading-[1.1] drop-shadow-2xl mb-4 line-clamp-3" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.8)' }} />
             </DeletableWidget>
 
-            <DeletableWidget id="cover-center" className="top-1/2 left-6 right-6 z-10" style={{ transform: 'translateY(-50%)' }} isHidden={hiddenFields["cover-center"]} onDelete={(id) => setHiddenFields(prev => ({...prev, [id]: true}))} isSelected={selectedElementId === "cover-center"} onSelect={(id) => setSelectedElementId(id)}>
+            <DeletableWidget id="cover-center" className="top-1/2 left-6 right-6 z-10 w-auto" style={{ transform: 'translateY(-50%)' }} isHidden={hiddenFields["cover-center"]} onDelete={(id) => setHiddenFields(prev => ({...prev, [id]: true}))} isSelected={selectedElementId === "cover-center"} onSelect={(id) => setSelectedElementId(id)}>
                     <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl">
                         <EditableText value={localSummary.coreIdea} path="coreIdea" colorOverride={highlightColor} className="text-lg font-bold text-shadow-md leading-relaxed" />
                     </div>
             </DeletableWidget>
 
-            <div className="absolute bottom-12 left-6 right-6 z-20 space-y-3">
-                <DeletableWidget id="cover-list" className="w-full" isHidden={hiddenFields["cover-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="cover-list"} onSelect={(id)=>setSelectedElementId(id)}>
-                    <div className="space-y-3">
-                        {localSummary.keyPoints.slice(0,3).map((point, i) => (
-                            <div key={i} className="flex items-center gap-3 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-lg">
-                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500 text-black font-bold flex items-center justify-center text-xs">{i+1}</span>
-                                <EditableText value={point} path={`keyPoints.${i}`} className="text-sm text-white font-medium line-clamp-2" />
-                            </div>
-                        ))}
-                    </div>
-                </DeletableWidget>
-            </div>
+            {/* Bottom List Container - Draggable as a whole */}
+            <DeletableWidget id="cover-list" className="bottom-12 left-6 right-6 z-20 w-auto" initialY={400} isHidden={hiddenFields["cover-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="cover-list"} onSelect={(id)=>setSelectedElementId(id)}>
+                <div className="space-y-3">
+                    {localSummary.keyPoints.slice(0,3).map((point, i) => (
+                        <div key={i} className="flex items-center gap-3 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-lg">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500 text-black font-bold flex items-center justify-center text-xs">{i+1}</span>
+                            <EditableText value={point} path={`keyPoints.${i}`} className="text-sm text-white font-medium line-clamp-2" />
+                        </div>
+                    ))}
+                </div>
+            </DeletableWidget>
         </div>
     );
   };
 
-  // Render Subtitle Stitch
+  // Render Subtitle Stitch - Optimized for "No Gaps"
   const renderSubtitleStitch = () => {
     return (
         <div className="w-full h-full flex flex-col bg-black">
@@ -596,10 +689,10 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                         {/* Clearer overlay for readability */}
                         <div className="absolute inset-0 bg-black/20"></div>
 
-                        {/* Subtitle Text */}
+                        {/* Subtitle Text - Draggable but confined to strip ideally, or just overlay */}
                         <DeletableWidget 
                             id={`stitch-sub-${idx}`}
-                            className="absolute inset-0 flex items-center justify-center"
+                            className="absolute inset-0 flex items-center justify-center w-full h-full"
                             isHidden={hiddenFields[`stitch-sub-${idx}`]}
                             onDelete={(id) => setHiddenFields(prev => ({...prev, [id]: true}))}
                             isSelected={selectedElementId === `stitch-sub-${idx}`}
@@ -609,7 +702,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                                     <EditableText 
                                     value={localSummary.keyPoints[idx] || "这里是重点剧情台词..."} 
                                     path={`keyPoints.${idx}`}
-                                    colorOverride={highlightColor} // User's highlight color
+                                    colorOverride={highlightColor} 
                                     className="text-shadow-lg font-bold text-lg md:text-xl leading-tight tracking-wide drop-shadow-md" 
                                     style={{ textShadow: '0 2px 6px rgba(0,0,0,1)' }}
                                 />
@@ -657,7 +750,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-4">
                     {activeMode === ImageMode.SUBTITLE_STITCH ? '拼图模式' : '选择模板'}
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                     {activeMode === ImageMode.SUBTITLE_STITCH ? (
                         <button className="w-full p-3 rounded-xl flex flex-col items-center gap-2 bg-indigo-500/10 border border-indigo-500 text-indigo-400">
                             <AlignJustify className="w-6 h-6" />
@@ -689,9 +782,21 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                                 <Aperture className="w-5 h-5" />
                                 <span className="text-xs font-medium">弥散渐变</span>
                             </button>
-                            <button onClick={() => setInfoStyle('POLAROID')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all col-span-2 ${infoStyle === 'POLAROID' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
+                            <button onClick={() => setInfoStyle('POLAROID')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'POLAROID' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <Grid className="w-5 h-5" />
                                 <span className="text-xs font-medium">胶片故事</span>
+                            </button>
+                            <button onClick={() => setInfoStyle('MAGAZINE')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'MAGAZINE' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
+                                <FileText className="w-5 h-5" />
+                                <span className="text-xs font-medium">时尚杂志</span>
+                            </button>
+                            <button onClick={() => setInfoStyle('PAPER')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'PAPER' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
+                                <FileText className="w-5 h-5" />
+                                <span className="text-xs font-medium">复古纸</span>
+                            </button>
+                            <button onClick={() => setInfoStyle('GLASS')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'GLASS' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
+                                <Layers className="w-5 h-5" />
+                                <span className="text-xs font-medium">毛玻璃</span>
                             </button>
                         </>
                     )}
