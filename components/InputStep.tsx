@@ -122,42 +122,5 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
                     <div>
                         <p className="font-bold mb-1">如何获取文案？</p>
                         <ul className="list-disc pl-4 space-y-1 text-xs text-indigo-300">
-                            <li>在 YouTube 视频下方，点击 <strong>...更多</strong> &rarr; <strong>显示字幕</strong>。</li>
-                            <li>复制右侧显示的字幕文字，粘贴到下方。</li>
-                            <li>或者，直接用您的话概括视频讲了什么（只需 200 字左右）。</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div className="relative group">
-                    <textarea
-                        value={userTranscript}
-                        onChange={(e) => setUserTranscript(e.target.value)}
-                        placeholder="在此粘贴视频字幕或内容概要... &#10;（Gemini 将完全基于您在这里输入的内容进行分析和创作，请务必输入您的视频内容）"
-                        className="w-full h-48 bg-zinc-950 border border-zinc-700 rounded-xl p-4 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
-                    />
-                    {!userTranscript && (
-                        <div className="absolute bottom-4 right-4 flex items-center gap-2 text-amber-500 text-xs bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                            <AlertCircle className="w-3 h-3" />
-                            必须输入内容才能继续
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <button
-                onClick={() => onNext(metadata, trimRange, userTranscript)}
-                disabled={!userTranscript.trim() || userTranscript.length < 10}
-                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:grayscale text-white font-bold rounded-xl shadow-lg transform hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
-            >
-                开始 AI 提取与创作
-                <Play className="w-5 h-5 fill-current" />
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default InputStep;
+                            <li>在 YouTube 视频下方，点击 <strong>...更多</strong> {'→'} <strong>显示字幕</strong>。</li>
+                            <li>复制右
