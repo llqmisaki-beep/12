@@ -1,17 +1,15 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { ContentSummary } from "../types";
+import { GoogleGenAI, Type, Schema, Tool } from "@google/genai";
+import { ContentSummary, InputSourceType } from "../types";
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
     console.warn("API Key not found in environment variables.");
-    // In a real app, handle this gracefully. For this demo, we might fail or mock.
   }
-  return new GoogleGenAI({ apiKey: apiKey || 'dummy-key-for-ui-mock' });
+  return new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
 };
 
-// Define the response schema for structured output
 const summarySchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -34,64 +32,115 @@ const summarySchema: Schema = {
         type: Type.OBJECT,
         properties: {
           text: { type: Type.STRING, description: "The quote text in Chinese" },
-          timestamp: { type: Type.STRING, description: "Estimated timestamp format MM:SS" },
+          timestamp: { type: Type.STRING, description: "Estimated timestamp or 'N/A'" },
         },
       },
       description: "1-2 of the most impactful quotes from the text.",
     },
+    searchImageUrls: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Extract valid image URLs found in the search results if available.",
+    }
   },
   required: ["title", "coreIdea", "keyPoints", "goldenQuotes"],
 };
 
-export const generateContentSummary = async (rawText: string): Promise<ContentSummary> => {
+export const generateContentSummary = async (
+  input: string, 
+  sourceType: InputSourceType
+): Promise<ContentSummary> => {
   const client = getClient();
 
-  // If no API key is present (demo mode without env), return mock data to prevent crash
   if (!process.env.API_KEY) {
+    // Mock fallback
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
-          title: "拒绝隐形贫穷！你的钱都被“拿铁因子”偷走了☕️",
-          coreIdea: "普通人存不下钱的根本原因不是收入低，而是忽视了生活中的非必要微小支出（拿铁因子）。记账是为了看见花销，强制储蓄才是王道。",
-          keyPoints: [
-            "警惕“拿铁因子”：那些非必要但习惯性的微小支出，一年下来是一笔巨款。",
-            "记账的意义：不是为了省钱，而是为了“看见”钱的去向。",
-            "强制储蓄法则：工资到账第一件事，雷打不动存下 20%。",
-            "复利思维：不要嫌本金少，种一棵树最好的时间是现在。"
-          ],
-          goldenQuotes: [
-            { text: "种一棵树最好的时间是十年前，其次是现在。", timestamp: "06:30" },
-            { text: "存钱是为了在生活给你一巴掌的时候，你有底气反手给它一巴掌。", timestamp: "08:10" }
-          ]
+          title: "演示模式：API Key 未配置",
+          coreIdea: "请在 .env 文件中配置 API_KEY 以使用真实 AI 功能。",
+          keyPoints: ["这是一个演示数据", "请检查环境配置", "支持视频、图片、搜索三模式"],
+          goldenQuotes: [{ text: "AI 是未来的电力。", timestamp: "00:00" }],
+          searchImageUrls: []
         });
-      }, 2000);
+      }, 1500);
     });
   }
 
   try {
-    const response = await client.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Analyze the following video transcript. 
-      Target audience: Social media users (Little Red Book / TikTok / Douyin) in China.
+    let prompt = "";
+    let tools: Tool[] | undefined = undefined;
+    let config: any = {};
+
+    if (sourceType === 'SEARCH') {
+      // Search Mode: Cannot use responseSchema/MimeType with Tools
+      prompt = `
+      Task: Search for the latest trending information, news, or videos about the topic: "${input}".
+      Target Audience: Chinese social media users (XiaoHongShu).
+      
+      Requirements:
+      1. Synthesize the search results into a viral summary.
+      2. Create a catchy title.
+      3. Summarize the core trend/idea.
+      4. List 3-5 key facts or takeaways.
+      5. Create 1-2 "Golden Quotes" based on the sentiment.
+      6. Extract any relevant image URLs from the search results into 'searchImageUrls'.
+      
+      IMPORTANT: Return the result as a valid raw JSON string matching the following structure. Do not include Markdown formatting (like \`\`\`json).
+      {
+        "title": "string",
+        "coreIdea": "string",
+        "keyPoints": ["string"],
+        "goldenQuotes": [{"text": "string", "timestamp": "N/A"}],
+        "searchImageUrls": ["string"]
+      }
+      `;
+      
+      tools = [{ googleSearch: {} }];
+      config = {
+        tools: tools,
+        // NOTE: responseMimeType and responseSchema MUST be undefined when using tools like googleSearch
+      };
+    } else {
+      // Text/Video Analysis Mode: Use Strict JSON Schema
+      prompt = `
+      Analyze the following text/transcript.
+      Target audience: Social media users (Little Red Book / TikTok) in China.
       Language: Chinese (Simplified).
       
       Task:
-      1. Create a click-worthy, viral title (Little Red Book style).
+      1. Create a click-worthy, viral title.
       2. Summarize the core idea in 1-2 sentences.
-      3. Extract 3-5 key knowledge points. Use plain, engaging Chinese.
-      4. Find 1-2 "Golden Quotes" that are inspiring.
+      3. Extract 3-5 key knowledge points.
+      4. Find 1-2 "Golden Quotes".
       
-      Transcript:
-      ${rawText}`,
-      config: {
+      Content:
+      ${input}
+      `;
+
+      config = {
         responseMimeType: "application/json",
         responseSchema: summarySchema,
-        systemInstruction: "You are an expert content editor for Chinese social media. You are concise, engaging, and accurate.",
-      },
+      };
+    }
+
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: config,
     });
 
     if (response.text) {
-      return JSON.parse(response.text) as ContentSummary;
+      let jsonStr = response.text.trim();
+      
+      // Cleanup Markdown code blocks if the model ignores the "no markdown" instruction (common in text-only mode)
+      if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      } else if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```\s*/, "").replace(/\s*```$/, "");
+      }
+
+      return JSON.parse(jsonStr) as ContentSummary;
     }
     throw new Error("Empty response from Gemini");
   } catch (error) {

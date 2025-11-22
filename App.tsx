@@ -13,25 +13,23 @@ const App: React.FC = () => {
   const [trimRange, setTrimRange] = useState<TrimRange>({ start: 0, end: 100 });
   const [summary, setSummary] = useState<ContentSummary | null>(null);
   
-  // Handlers
   const handleInputComplete = async (meta: VideoMetadata, trim: TrimRange, transcript: string) => {
     setMetadata(meta);
     setTrimRange(trim);
     setStep(AppStep.PROCESSING_TEXT);
 
     try {
-      // STRICT: Only use user transcript. No fallbacks to mock data.
-      // If transcript is empty (should be blocked by UI), throw error.
       if (!transcript.trim()) {
-         throw new Error("No transcript provided");
+         throw new Error("No content provided");
       }
 
-      const aiResult = await generateContentSummary(transcript);
+      // Pass sourceType to service to decide if it should use text analysis or search tool
+      const aiResult = await generateContentSummary(transcript, meta.sourceType);
       setSummary(aiResult);
       setStep(AppStep.REVIEW_TEXT);
     } catch (error) {
       console.error(error);
-      alert("生成总结失败，请检查网络或输入内容是否过短。");
+      alert("AI 处理失败，请检查网络或 Key 配置。");
       setStep(AppStep.INPUT);
     }
   };
@@ -39,7 +37,6 @@ const App: React.FC = () => {
   const handleTextReviewComplete = (updatedSummary: ContentSummary) => {
     setSummary(updatedSummary);
     setStep(AppStep.GENERATING_IMAGES);
-    // Simulate short loading for image preparation
     setTimeout(() => {
         setStep(AppStep.RESULT_EDITOR);
     }, 1500);
@@ -51,11 +48,8 @@ const App: React.FC = () => {
     setSummary(null);
   };
 
-  // Render Logic
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30">
-      
-      {/* Navbar */}
       <nav className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -72,7 +66,6 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         
         {step === AppStep.INPUT && (
@@ -82,8 +75,8 @@ const App: React.FC = () => {
         {step === AppStep.PROCESSING_TEXT && (
           <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in">
              <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-6" />
-             <h3 className="text-xl font-medium text-white">正在分析您的文案...</h3>
-             <p className="text-zinc-500 mt-2 text-center max-w-md">Gemini 正在阅读您提供的内容，<br/>去除冗余信息，并提取核心金句。</p>
+             <h3 className="text-xl font-medium text-white">正在分析内容...</h3>
+             <p className="text-zinc-500 mt-2 text-center max-w-md">Gemini 正在{metadata?.sourceType === 'SEARCH' ? '搜索全网资讯' : '提取内容精华'}，<br/>并生成病毒式传播文案。</p>
           </div>
         )}
 
@@ -99,7 +92,7 @@ const App: React.FC = () => {
            <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in">
              <Loader2 className="w-12 h-12 text-purple-500 animate-spin mb-6" />
              <h3 className="text-xl font-medium text-white">正在设计视觉图...</h3>
-             <p className="text-zinc-500 mt-2">正在调用 YouTube 封面并生成排版。</p>
+             <p className="text-zinc-500 mt-2">正在应用排版引擎和上传的素材。</p>
           </div>
         )}
 

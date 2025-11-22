@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ContentSummary, ImageMode, VideoMetadata } from '../types';
 import { Layout, Film, Download, AlignJustify, Image as ImageIcon, Smartphone, CreditCard, RefreshCw, ArrowLeft, Type, Shuffle, X, Upload, ChevronLeft, Zap, Aperture, Grid, FileText, Layers, Sparkles } from 'lucide-react';
 
@@ -86,11 +86,12 @@ const DeletableWidget: React.FC<{
     children: React.ReactNode;
     className?: string;
     style?: React.CSSProperties;
-    isHidden: boolean;
+    isHidden?: boolean;
     onDelete: (id: string) => void;
     isSelected: boolean;
     onSelect: (id: string) => void;
-}> = ({ id, children, className, style, isHidden, onDelete, isSelected, onSelect }) => {
+    initialY?: number;
+}> = ({ id, children, className, style, isHidden, onDelete, isSelected, onSelect, initialY }) => {
     const { position, onMouseDown, style: dragStyle } = useDraggable();
     
     if (isHidden) return null;
@@ -98,7 +99,7 @@ const DeletableWidget: React.FC<{
     return (
         <div 
             className={`absolute group/widget ${isSelected ? 'z-50 ring-2 ring-dashed ring-indigo-500' : 'z-10'} ${className || ''}`} 
-            style={{ ...style, ...dragStyle }}
+            style={{ ...style, top: initialY ? undefined : style?.top, transform: `translate(${position.x}px, ${initialY ? initialY + position.y : position.y}px)` }}
             onMouseDown={(e) => {
                 onMouseDown(e);
                 onSelect(id);
@@ -136,31 +137,48 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
   const [highlightColor, setHighlightColor] = useState<string>('#FACC15');
 
   const [imageSeeds, setImageSeeds] = useState<Record<SeedKey, number>>({
-    hero: 0,
-    frame1: 1,
-    frame2: 2,
-    frame3: 3,
-    frame4: 4,
+    hero: 0, frame1: 1, frame2: 2, frame3: 3, frame4: 4,
   });
   const [customImages, setCustomImages] = useState<Partial<Record<SeedKey, string>>>({});
 
-  const extractYoutubeId = (url: string) => {
-    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[7].length === 11) ? match[7] : null;
-  };
+  // Initialize custom images from metadata (uploaded images OR search images)
+  useEffect(() => {
+      const initialImages: Partial<Record<SeedKey, string>> = {};
+      
+      // 1. VIDEO MODE
+      if (metadata.sourceType === 'VIDEO' && metadata.fileUrl) {
+          initialImages['hero'] = metadata.fileUrl; 
+          if (metadata.thumbnail) initialImages['hero'] = metadata.thumbnail;
+      }
+      
+      // 2. IMAGES MODE
+      if (metadata.sourceType === 'IMAGES' && metadata.uploadedImages && metadata.uploadedImages.length > 0) {
+          const imgs = metadata.uploadedImages;
+          if (imgs[0]) initialImages['hero'] = imgs[0];
+          if (imgs[1]) initialImages['frame1'] = imgs[1];
+          if (imgs[2]) initialImages['frame2'] = imgs[2];
+          if (imgs[3]) initialImages['frame3'] = imgs[3];
+          if (imgs[4]) initialImages['frame4'] = imgs[4];
+      }
+
+      // 3. SEARCH MODE (New: Populate from extracted search images)
+      if (metadata.sourceType === 'SEARCH' && summary.searchImageUrls && summary.searchImageUrls.length > 0) {
+          const imgs = summary.searchImageUrls;
+          if (imgs[0]) initialImages['hero'] = imgs[0];
+          if (imgs[1]) initialImages['frame1'] = imgs[1];
+          if (imgs[2]) initialImages['frame2'] = imgs[2];
+          if (imgs[3]) initialImages['frame3'] = imgs[3];
+      }
+
+      setCustomImages(prev => ({ ...prev, ...initialImages }));
+  }, [metadata, summary]);
+
 
   const getImageUrl = (seedKey: SeedKey) => {
     if (customImages[seedKey]) return customImages[seedKey]!;
     const seed = imageSeeds[seedKey];
-    if (metadata.platform === 'youtube') {
-        const videoId = extractYoutubeId(metadata.url);
-        if (videoId) {
-             const variants = ['maxresdefault.jpg', 'hqdefault.jpg', 'sddefault.jpg']; 
-             return `https://img.youtube.com/vi/${videoId}/${variants[seed % variants.length]}`;
-        }
-    }
-    return `https://picsum.photos/seed/${seed + 100}/800/600`;
+    // Random placeholders
+    return `https://picsum.photos/seed/${seed + 200}/800/1000`;
   };
 
   const refreshImage = (key: SeedKey) => {
@@ -180,7 +198,11 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
   };
 
   const shuffleAllImages = () => {
-    setCustomImages({});
+    // Reset custom images to allow random seeds to take over, or reshuffle existing ones?
+    // Simple approach: clear overrides and randomize seeds.
+    if (metadata.sourceType === 'IMAGES') {
+        setCustomImages({}); // Clear uploads to show randoms (user can re-upload)
+    }
     setImageSeeds({
         hero: Math.floor(Math.random() * 5000),
         frame1: Math.floor(Math.random() * 5000),
@@ -265,16 +287,18 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
             handleImageUpload(seedKey, e.target.files[0]);
         }
     };
+    
+    const displaySrc = src; 
 
     return (
         <div className={`relative group overflow-hidden ${className || ''} bg-zinc-800`}>
-            <img src={src} className="w-full h-full object-cover" style={imgStyle} alt="Content" crossOrigin="anonymous" />
+            <img src={displaySrc} className="w-full h-full object-cover" style={imgStyle} alt="Content" crossOrigin="anonymous" />
             {showControls && (
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10">
                     <button 
                         onClick={(e) => { e.stopPropagation(); refreshImage(seedKey); }}
                         className="bg-white/20 hover:bg-white/40 backdrop-blur-md p-2 rounded-full text-white transition-all transform hover:scale-105 shadow-lg"
-                        title={customImages[seedKey] ? "还原封面" : "随机换图"}
+                        title={customImages[seedKey] ? "还原/换图" : "随机换图"}
                     >
                         <RefreshCw className="w-4 h-4" />
                     </button>
@@ -323,7 +347,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
   // --- Render Templates ---
   const renderInfographicContent = () => {
     
-    // 1. MEMO (Apple Notes) - Optimized for flow
+    // 1. MEMO (Apple Notes)
     if (infoStyle === 'MEMO') {
         return (
             <div className="w-full h-full bg-[#f2f2f7] flex flex-col relative overflow-hidden font-sans">
@@ -333,7 +357,6 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                         <div className="text-xs font-semibold text-black">备忘录</div>
                         <div className="w-6 h-6 rounded-full border border-[#e0aa3e] flex items-center justify-center text-[10px]">●●●</div>
                 </div>
-                {/* Use a single container to prevent overlap */}
                 <div className="m-4 mt-2 flex-1 bg-white rounded-xl shadow-sm p-6 relative z-10 overflow-hidden">
                     <DeletableWidget id="memo-container" isHidden={hiddenFields["memo-container"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="memo-container"} onSelect={(id)=>setSelectedElementId(id)} className="w-full h-full">
                         <div className="space-y-5">
@@ -360,17 +383,15 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // 2. CARD (Knowledge) - Fixed Layout
+    // 2. CARD (Knowledge)
     if (infoStyle === 'CARD') {
         return (
             <div className="w-full h-full bg-zinc-50 flex flex-col relative border-[12px]" style={{ borderColor: highlightColor }}>
-                 {/* Top Section - Draggable */}
                 <div className="p-8 pb-12 text-center relative overflow-hidden shrink-0" style={{ backgroundColor: highlightColor }}>
                         <DeletableWidget id="card-title" className="relative z-10 w-full" isHidden={hiddenFields["card-title"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="card-title"} onSelect={(id)=>setSelectedElementId(id)}>
                             <EditableText value={localSummary.title} path="title" colorOverride='#FFFFFF' className="text-3xl font-black leading-tight text-shadow-sm" />
                         </DeletableWidget>
                 </div>
-                {/* Content Section - Draggable Container */}
                 <div className="flex-1 bg-white -mt-6 mx-6 mb-6 rounded-t-2xl shadow-xl p-6 flex flex-col relative z-20 overflow-hidden">
                     <DeletableWidget id="card-content" className="w-full relative flex-1 flex flex-col" isHidden={hiddenFields["card-content"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="card-content"} onSelect={(id)=>setSelectedElementId(id)}>
                         <div className="flex flex-col gap-6">
@@ -402,7 +423,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // 3. MINIMAL - One block flow
+    // 3. MINIMAL
     if (infoStyle === 'MINIMAL') {
         return (
              <div className="w-full h-full bg-[#FDFBF7] flex flex-col p-8 relative border-8 border-white shadow-inner">
@@ -427,15 +448,11 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                         ))}
                      </div>
                  </DeletableWidget>
-                 
-                 <div className="mt-auto text-center opacity-30">
-                     <Film className="w-6 h-6 mx-auto text-zinc-900" />
-                 </div>
              </div>
         );
     }
 
-    // 4. NEON - One block flow
+    // 4. NEON
     if (infoStyle === 'NEON') {
         return (
              <div className="w-full h-full bg-[#050505] flex flex-col p-6 relative overflow-hidden border-2 border-[#050505]">
@@ -499,8 +516,6 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
             <div className="w-full h-full bg-zinc-200 flex flex-col p-6 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-50"></div>
                 
-                {/* Stack widgets loosely but prevent overlap by manual spacing if user drags. 
-                    Here we give them initial positions that don't overlap */}
                 <DeletableWidget id="polaroid-hero" className="w-full rotate-2 mt-4 relative z-10" isHidden={hiddenFields["polaroid-hero"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-hero"} onSelect={(id)=>setSelectedElementId(id)}>
                     <div className="bg-white p-3 pb-10 shadow-xl shadow-black/10">
                         <div className="aspect-video bg-zinc-100 overflow-hidden grayscale hover:grayscale-0 transition-all duration-500">
@@ -528,11 +543,10 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // 7. MAGAZINE (New) - Fashion Style
+    // 7. MAGAZINE
     if (infoStyle === 'MAGAZINE') {
         return (
             <div className="w-full h-full bg-white flex flex-col relative font-serif-sc">
-                 {/* Full Background Image */}
                  <div className="absolute inset-0">
                     <EditableImage seedKey="hero" className="w-full h-full" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30"></div>
@@ -564,7 +578,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // 8. PAPER (New) - Retro Style
+    // 8. PAPER
     if (infoStyle === 'PAPER') {
         return (
             <div className="w-full h-full bg-[#fdf6e3] flex flex-col p-8 relative font-serif-sc border-[16px] border-[#eee8d5]">
@@ -599,11 +613,10 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // 9. GLASS (New) - Modern UI
+    // 9. GLASS
     if (infoStyle === 'GLASS') {
         return (
             <div className="w-full h-full bg-black relative overflow-hidden flex items-center justify-center">
-                 {/* Colorful Blobs */}
                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 opacity-80"></div>
                  <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-400 rounded-full blur-[100px] opacity-50 animate-pulse"></div>
                  <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-yellow-400 rounded-full blur-[120px] opacity-40 animate-pulse"></div>
@@ -649,7 +662,6 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                     </div>
             </DeletableWidget>
 
-            {/* Bottom List Container - Draggable as a whole */}
             <DeletableWidget id="cover-list" className="bottom-12 left-6 right-6 z-20 w-auto" initialY={400} isHidden={hiddenFields["cover-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="cover-list"} onSelect={(id)=>setSelectedElementId(id)}>
                 <div className="space-y-3">
                     {localSummary.keyPoints.slice(0,3).map((point, i) => (
@@ -664,32 +676,27 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
     );
   };
 
-  // Render Subtitle Stitch - Optimized for "No Gaps"
+  // Render Subtitle Stitch
   const renderSubtitleStitch = () => {
     return (
         <div className="w-full h-full flex flex-col bg-black">
-            {/* Top Main Frame (60%) - Clear */}
             <div className="h-[60%] w-full relative z-10 shrink-0">
                 <EditableImage seedKey="hero" className="w-full h-full" />
             </div>
             
-            {/* Subtitle Strips - Blurred Background + Text Overlay */}
             <div className="flex-1 flex flex-col gap-[1px] overflow-hidden">
                 {[0, 1, 2].map((idx) => (
                     <div key={idx} className="flex-1 w-full relative overflow-hidden group/strip">
-                        {/* Blurred Background */}
                         <div className="absolute inset-0 scale-110">
                             <EditableImage 
                                 seedKey={`frame${idx + 1}` as SeedKey} 
                                 className="w-full h-full" 
-                                imgStyle={{ filter: 'blur(8px) brightness(0.6)', transform: 'scale(1.1)' }} // Blur effect
+                                imgStyle={{ filter: 'blur(8px) brightness(0.6)', transform: 'scale(1.1)' }}
                                 showControls={false}
                             />
                         </div>
-                        {/* Clearer overlay for readability */}
                         <div className="absolute inset-0 bg-black/20"></div>
 
-                        {/* Subtitle Text - Draggable but confined to strip ideally, or just overlay */}
                         <DeletableWidget 
                             id={`stitch-sub-${idx}`}
                             className="absolute inset-0 flex items-center justify-center w-full h-full"
@@ -709,7 +716,6 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                             </div>
                         </DeletableWidget>
                         
-                        {/* Hidden Controls Trigger */}
                         <div className="absolute right-2 bottom-2 opacity-0 group-hover/strip:opacity-100 z-20">
                              <button onClick={() => refreshImage(`frame${idx+1}` as SeedKey)} className="p-1 bg-white/20 rounded-full text-white"><RefreshCw className="w-3 h-3"/></button>
                         </div>
@@ -722,7 +728,6 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
 
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col h-full animate-fade-in pb-20">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
          <div className="flex items-center gap-4">
             <button onClick={onBack} className="p-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 group">
@@ -730,7 +735,9 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
             </button>
             <div>
                 <h2 className="text-2xl font-bold text-white">视觉工坊</h2>
-                <p className="text-zinc-400 text-sm mt-1">支持拖拽排版、独立样式、海量模板</p>
+                <p className="text-zinc-400 text-sm mt-1">
+                    {metadata.sourceType === 'SEARCH' ? '搜索源' : (metadata.sourceType === 'IMAGES' ? '图文创作' : '视频分析')}
+                </p>
             </div>
          </div>
          <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800">
@@ -743,14 +750,14 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
          </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 min-h-[800px]">
+      <div className="flex flex-col lg:flex-row gap-8 min-h-[800px] flex-col-reverse lg:flex-row">
         {/* Sidebar */}
-        <div className="w-full lg:w-80 flex flex-col gap-6 flex-shrink-0 h-fit sticky top-24">
+        <div className="w-full lg:w-80 flex flex-col gap-6 flex-shrink-0 h-fit">
             <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-4">
                     {activeMode === ImageMode.SUBTITLE_STITCH ? '拼图模式' : '选择模板'}
                 </h3>
-                <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-4 lg:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                     {activeMode === ImageMode.SUBTITLE_STITCH ? (
                         <button className="w-full p-3 rounded-xl flex flex-col items-center gap-2 bg-indigo-500/10 border border-indigo-500 text-indigo-400">
                             <AlignJustify className="w-6 h-6" />
@@ -760,50 +767,49 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                         <>
                             <button onClick={() => setInfoStyle('COVER')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'COVER' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <ImageIcon className="w-5 h-5" />
-                                <span className="text-xs font-medium">封面大图</span>
+                                <span className="text-[10px] font-medium text-center">封面大图</span>
                             </button>
                             <button onClick={() => setInfoStyle('MEMO')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'MEMO' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <Smartphone className="w-5 h-5" />
-                                <span className="text-xs font-medium">备忘录</span>
+                                <span className="text-[10px] font-medium text-center">备忘录</span>
                             </button>
                              <button onClick={() => setInfoStyle('CARD')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'CARD' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <CreditCard className="w-5 h-5" />
-                                <span className="text-xs font-medium">知识卡片</span>
+                                <span className="text-[10px] font-medium text-center">知识卡片</span>
                             </button>
                             <button onClick={() => setInfoStyle('MINIMAL')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'MINIMAL' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <AlignJustify className="w-5 h-5" />
-                                <span className="text-xs font-medium">极简风</span>
+                                <span className="text-[10px] font-medium text-center">极简风</span>
                             </button>
                             <button onClick={() => setInfoStyle('NEON')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'NEON' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <Zap className="w-5 h-5" />
-                                <span className="text-xs font-medium">暗黑霓虹</span>
+                                <span className="text-[10px] font-medium text-center">暗黑霓虹</span>
                             </button>
                             <button onClick={() => setInfoStyle('GRADIENT')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'GRADIENT' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <Aperture className="w-5 h-5" />
-                                <span className="text-xs font-medium">弥散渐变</span>
+                                <span className="text-[10px] font-medium text-center">弥散渐变</span>
                             </button>
                             <button onClick={() => setInfoStyle('POLAROID')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'POLAROID' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <Grid className="w-5 h-5" />
-                                <span className="text-xs font-medium">胶片故事</span>
+                                <span className="text-[10px] font-medium text-center">胶片故事</span>
                             </button>
                             <button onClick={() => setInfoStyle('MAGAZINE')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'MAGAZINE' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <FileText className="w-5 h-5" />
-                                <span className="text-xs font-medium">时尚杂志</span>
+                                <span className="text-[10px] font-medium text-center">时尚杂志</span>
                             </button>
                             <button onClick={() => setInfoStyle('PAPER')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'PAPER' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <FileText className="w-5 h-5" />
-                                <span className="text-xs font-medium">复古纸</span>
+                                <span className="text-[10px] font-medium text-center">复古纸</span>
                             </button>
                             <button onClick={() => setInfoStyle('GLASS')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'GLASS' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <Layers className="w-5 h-5" />
-                                <span className="text-xs font-medium">毛玻璃</span>
+                                <span className="text-[10px] font-medium text-center">毛玻璃</span>
                             </button>
                         </>
                     )}
                 </div>
             </div>
 
-             {/* Contextual Styling Panel */}
              <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 space-y-4 transition-all">
                  <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
@@ -855,11 +861,10 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                  </div>
              </div>
 
-            {/* Footer Actions */}
             <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 mt-auto space-y-3">
                 <div className="flex gap-2">
                     <button onClick={shuffleAllImages} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium transition-colors border border-zinc-700 flex justify-center gap-1">
-                        <Shuffle className="w-3 h-3" /> 重置图片
+                        <Shuffle className="w-3 h-3" /> 随机配图
                     </button>
                     <button onClick={shuffleTextContent} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium transition-colors border border-zinc-700 flex justify-center gap-1">
                         <RefreshCw className="w-3 h-3" /> 换文案
@@ -871,9 +876,8 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
             </div>
         </div>
 
-        {/* Canvas Preview */}
         <div className="flex-1 flex justify-center bg-zinc-950/50 rounded-3xl border border-zinc-900/50 p-8 overflow-hidden relative" onClick={() => setSelectedElementId(null)}>
-            <div id="preview-container" ref={previewRef} className="relative w-[480px] h-[640px] flex-shrink-0 shadow-2xl transition-all duration-500 select-none overflow-hidden bg-black" style={{ aspectRatio: '3/4' }}>
+            <div id="preview-container" ref={previewRef} className="relative w-[480px] h-[640px] flex-shrink-0 shadow-2xl transition-all duration-500 select-none overflow-hidden bg-black origin-top scale-[0.65] sm:scale-100" style={{ aspectRatio: '3/4' }}>
                 {activeMode === ImageMode.SUBTITLE_STITCH ? renderSubtitleStitch() : renderInfographicContent()}
             </div>
         </div>
