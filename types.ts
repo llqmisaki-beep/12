@@ -1,4 +1,3 @@
-
 export enum AppStep {
   INPUT = 'INPUT',
   PROCESSING_TEXT = 'PROCESSING_TEXT',
@@ -9,11 +8,24 @@ export enum AppStep {
 
 export type InputSourceType = 'VIDEO' | 'IMAGES' | 'SEARCH';
 
+// New: Search Platform types
+export type SearchPlatform = 'X' | 'YOUTUBE' | 'WEB';
+
+// New: Search Result Item structure
+export interface SearchResultItem {
+  id: string;
+  title: string;
+  snippet: string;
+  url: string;
+  source: string;
+}
+
 export interface VideoMetadata {
   sourceType: InputSourceType;
-  url?: string; // For YouTube or Search result link
-  fileUrl?: string; // For local video blob
-  uploadedImages?: string[]; // For local image blobs
+  searchPlatform?: SearchPlatform; // Track which platform was used
+  url?: string; 
+  fileUrl?: string; 
+  uploadedImages?: string[]; 
   title: string;
   thumbnail?: string;
   durationStr?: string;
@@ -26,16 +38,16 @@ export interface TrimRange {
 }
 
 export interface ContentSummary {
-  title: string; // The "viral" title
-  coreIdea: string; // 1-2 sentences core pain point
-  keyPoints: string[]; // 3-5 key takeaways with emojis
-  goldenQuotes: Quote[]; // 1-2 best sentences
-  searchImageUrls?: string[]; // Optional: extracted image URLs from search
+  title: string; 
+  coreIdea: string; 
+  keyPoints: string[]; 
+  goldenQuotes: Quote[]; 
+  searchImageUrls?: string[]; // New: Images extracted from search
 }
 
 export interface Quote {
   text: string;
-  timestamp: string; // Mock timestamp string e.g., "02:15"
+  timestamp: string; 
 }
 
 export enum ImageMode {
@@ -46,6 +58,6 @@ export enum ImageMode {
 export interface GeneratedImage {
   id: string;
   type: ImageMode;
-  url: string; // Can be a data URL or placeholder for this demo
+  url: string; 
   description: string;
 }

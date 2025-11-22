@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ContentSummary, ImageMode, VideoMetadata } from '../types';
-import { Layout, Film, Download, AlignJustify, Image as ImageIcon, Smartphone, CreditCard, RefreshCw, ArrowLeft, Type, Shuffle, X, Upload, ChevronLeft, Zap, Aperture, Grid, FileText, Layers, Sparkles } from 'lucide-react';
+import { Layout, Film, Download, AlignJustify, Image as ImageIcon, Smartphone, CreditCard, RefreshCw, ArrowLeft, Type, Shuffle, X, Upload, ChevronLeft, Zap, Aperture, Grid, FileText, Layers, Sparkles, BookOpen } from 'lucide-react';
 
 interface ImageGenerationStepProps {
   summary: ContentSummary;
@@ -10,7 +9,7 @@ interface ImageGenerationStepProps {
   onBack: () => void;
 }
 
-type InfographicStyle = 'COVER' | 'MEMO' | 'CARD' | 'MINIMAL' | 'NEON' | 'GRADIENT' | 'POLAROID' | 'MAGAZINE' | 'PAPER' | 'GLASS';
+type InfographicStyle = 'COVER' | 'MEMO' | 'CARD' | 'MINIMAL' | 'NEON' | 'GRADIENT' | 'POLAROID' | 'MAGAZINE' | 'PAPER' | 'GLASS' | 'LITERATURE';
 type FontStyle = 'SANS' | 'SERIF' | 'CALLIGRAPHY' | 'HAPPY' | 'ELEGANT';
 
 type SeedKey = 'hero' | 'frame1' | 'frame2' | 'frame3' | 'frame4';
@@ -645,7 +644,67 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // --- Default: COVER ---
+    // 10. LITERATURE (New Style)
+    if (infoStyle === 'LITERATURE') {
+        return (
+            <div className="w-full h-full relative flex flex-col bg-black">
+                {/* Background Hero - The Paper */}
+                <div className="absolute inset-0">
+                    <EditableImage seedKey="hero" className="w-full h-full" />
+                </div>
+                
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+
+                {/* Content Container */}
+                <DeletableWidget 
+                    id="lit-container" 
+                    className="absolute bottom-0 left-0 right-0 p-8 flex flex-col gap-8 z-10"
+                    isHidden={hiddenFields["lit-container"]} 
+                    onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} 
+                    isSelected={selectedElementId==="lit-container"} 
+                    onSelect={(id)=>setSelectedElementId(id)}
+                >
+                    {/* English Abstract / Core Idea (Bilingual Mock) */}
+                    <div className="space-y-2">
+                         <div className="border-l-4 border-orange-500 pl-4">
+                            <EditableText 
+                                value={localSummary.coreIdea} 
+                                path="coreIdea" 
+                                colorOverride="#d4d4d8" // Zinc 300
+                                className="text-xl font-serif-sc font-medium leading-relaxed italic opacity-90" 
+                            />
+                         </div>
+                         <EditableText 
+                             value="The root cause of the problem is often hidden in plain sight." 
+                             path="subtitle_placeholder" 
+                             colorOverride="#a1a1aa" 
+                             className="text-sm font-sans font-medium opacity-70 pl-5"
+                             placeholder="输入英文摘要..."
+                         />
+                    </div>
+
+                    {/* Big Chinese Title */}
+                    <div>
+                        <EditableText 
+                            value={localSummary.title} 
+                            path="title" 
+                            colorOverride="#ffffff" 
+                            className="text-5xl font-black tracking-tight leading-none mb-2 font-sans-sc" 
+                        />
+                         <EditableText 
+                            value="SCIENCE & LIFE" 
+                            path="lit_tag" 
+                            colorOverride="#f97316" // Orange 500
+                            className="text-xs font-bold tracking-[0.5em] uppercase" 
+                        />
+                    </div>
+                </DeletableWidget>
+            </div>
+        );
+    }
+
+    // Default COVER
     return (
         <div className="w-full h-full relative">
             <EditableImage seedKey="hero" className="w-full h-full" />
@@ -769,6 +828,10 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                                 <ImageIcon className="w-5 h-5" />
                                 <span className="text-[10px] font-medium text-center">封面大图</span>
                             </button>
+                            <button onClick={() => setInfoStyle('LITERATURE')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'LITERATURE' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
+                                <BookOpen className="w-5 h-5" />
+                                <span className="text-[10px] font-medium text-center">文献分享</span>
+                            </button>
                             <button onClick={() => setInfoStyle('MEMO')} className={`p-3 rounded-xl flex flex-col items-center gap-2 border transition-all ${infoStyle === 'MEMO' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                 <Smartphone className="w-5 h-5" />
                                 <span className="text-[10px] font-medium text-center">备忘录</span>
@@ -810,6 +873,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                 </div>
             </div>
 
+             {/* Styles & Download - Keep as is */}
              <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 space-y-4 transition-all">
                  <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
