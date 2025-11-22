@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { VideoMetadata, TrimRange, InputSourceType, SearchPlatform, SearchResultItem } from '../types';
-import { Upload, Image as ImageIcon, Search, FileText, Film, Plus, X, PlayCircle, Twitter, Youtube, Globe, Loader2, CheckCircle2, Circle } from 'lucide-react';
+import { Upload, Image as ImageIcon, Search, FileText, Film, Plus, X, PlayCircle, Twitter, Youtube, Globe, Loader2, CheckCircle2, Circle, Eraser, Scissors } from 'lucide-react';
 import { searchTopic } from '../services/geminiService';
 
 interface InputStepProps {
@@ -14,6 +14,8 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoContext, setVideoContext] = useState('');
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+  const [extractedFrames, setExtractedFrames] = useState<string[]>([]); // To store auto-extracted frames
 
   // State for IMAGES mode
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -29,14 +31,70 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoElementRef = useRef<HTMLVideoElement>(null);
 
-  // Handlers
+  // --- Handlers ---
+
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if(file.size > 100 * 1024 * 1024) {
+          alert("视频过大，请上传 100MB 以内的文件");
+          return;
+      }
       setVideoFile(file);
       setVideoUrl(URL.createObjectURL(file));
+      setExtractedFrames([]); // Reset frames on new upload
     }
+  };
+
+  // Auto-extract frames from video
+  const extractKeyframes = async () => {
+      if (!videoElementRef.current || !videoFile) return;
+      setIsExtractingFrames(true);
+      const video = videoElementRef.current;
+      const frames: string[] = [];
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Points to capture: 10%, 30%, 50%, 70%, 90%
+      const duration = video.duration || 10;
+      const timePoints = [0.1, 0.3, 0.5, 0.7, 0.9].map(p => p * duration);
+
+      try {
+          for (const time of timePoints) {
+              video.currentTime = time;
+              await new Promise<void>(resolve => {
+                  const onSeek = () => {
+                      video.removeEventListener('seeked', onSeek);
+                      resolve();
+                  };
+                  video.addEventListener('seeked', onSeek);
+              });
+              
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+              frames.push(canvas.toDataURL('image/jpeg', 0.8));
+          }
+          setExtractedFrames(frames);
+      } catch(e) {
+          console.error("Frame extraction failed", e);
+          alert("无法提取关键帧，请尝试手动截图");
+      } finally {
+          setIsExtractingFrames(false);
+          video.currentTime = 0; // Reset
+      }
+  };
+
+  const cleanTranscript = () => {
+      // Regex to remove timestamps like 00:00, [12:30], etc. and clean empty lines
+      const cleaned = videoContext
+        .replace(/\[?\d{1,2}:\d{2}(:\d{2})?\]?/g, '') // Remove timestamps
+        .replace(/^\s*[\r\n]/gm, '') // Remove empty lines
+        .replace(/  +/g, ' ') // Collapse spaces
+        .trim();
+      setVideoContext(cleaned);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,7 +146,8 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
         sourceType: 'VIDEO',
         title: videoFile?.name || '本地视频分析',
         fileUrl: videoUrl || undefined,
-        thumbnail: videoUrl || undefined,
+        thumbnail: extractedFrames[0] || videoUrl || undefined,
+        uploadedImages: extractedFrames, // Pass extracted frames
       };
       transcript = videoContext || "（用户未提供文本，请根据视频画面生成通用的视觉描述和摘要）"; 
     } 
@@ -104,7 +163,6 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
     else if (activeTab === 'SEARCH') {
       if (selectedResultIds.length === 0) return alert("请先搜索并至少选择一条结果");
       
-      // Aggregate selected results
       const selectedItems = searchResults.filter(r => selectedResultIds.includes(r.id));
       const aggregatedText = selectedItems.map(item => 
           `[Title: ${item.title}]\n[Source: ${item.source}]\n[Content: ${item.snippet}]`
@@ -128,28 +186,16 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
         <p className="text-zinc-400">选择一种方式，AI 将自动为您提取精华并生成视觉图。</p>
       </div>
 
-      {/* Main Tabs (Scrollable on Mobile) */}
+      {/* Main Tabs */}
       <div className="flex overflow-x-auto md:justify-center gap-4 mb-8 pb-2 px-4 no-scrollbar">
-        <button 
-          onClick={() => setActiveTab('VIDEO')}
-          className={`flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl border transition-all ${activeTab === 'VIDEO' ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
-        >
-          <Film className="w-5 h-5" />
-          <span>视频分析</span>
+        <button onClick={() => setActiveTab('VIDEO')} className={`flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl border transition-all ${activeTab === 'VIDEO' ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}>
+          <Film className="w-5 h-5" /> 视频分析
         </button>
-        <button 
-          onClick={() => setActiveTab('IMAGES')}
-          className={`flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl border transition-all ${activeTab === 'IMAGES' ? 'bg-purple-600 border-purple-500 text-white shadow-lg' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
-        >
-          <ImageIcon className="w-5 h-5" />
-          <span>图文配字</span>
+        <button onClick={() => setActiveTab('IMAGES')} className={`flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl border transition-all ${activeTab === 'IMAGES' ? 'bg-purple-600 border-purple-500 text-white shadow-lg' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}>
+          <ImageIcon className="w-5 h-5" /> 图文配字
         </button>
-        <button 
-          onClick={() => setActiveTab('SEARCH')}
-          className={`flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl border transition-all ${activeTab === 'SEARCH' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
-        >
-          <Search className="w-5 h-5" />
-          <span>热点搜索</span>
+        <button onClick={() => setActiveTab('SEARCH')} className={`flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl border transition-all ${activeTab === 'SEARCH' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}>
+          <Search className="w-5 h-5" /> 热点搜索
         </button>
       </div>
 
@@ -160,32 +206,67 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
         {activeTab === 'VIDEO' && (
           <div className="space-y-6 animate-fade-in">
             <div 
-              className="border-2 border-dashed border-zinc-700 rounded-2xl p-8 flex flex-col items-center justify-center text-zinc-400 hover:border-indigo-500 hover:bg-zinc-800/50 transition-all cursor-pointer bg-zinc-950"
-              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-zinc-700 rounded-2xl p-8 flex flex-col items-center justify-center text-zinc-400 hover:border-indigo-500 hover:bg-zinc-800/50 transition-all cursor-pointer bg-zinc-950 relative overflow-hidden"
+              onClick={() => !videoUrl && fileInputRef.current?.click()}
             >
               <input type="file" accept="video/*" hidden ref={fileInputRef} onChange={handleVideoUpload} />
               {videoUrl ? (
-                <div className="w-full max-w-md aspect-video bg-black rounded-lg overflow-hidden relative group">
-                  <video src={videoUrl} className="w-full h-full object-contain" controls />
-                  <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded text-xs text-white">预览中</div>
+                <div className="w-full flex flex-col gap-4">
+                    <div className="w-full aspect-video bg-black rounded-lg overflow-hidden relative group">
+                        <video 
+                            ref={videoElementRef}
+                            src={videoUrl} 
+                            className="w-full h-full object-contain" 
+                            controls 
+                            onLoadedData={() => {
+                                // Auto extract frames logic could go here if we wanted auto on load
+                            }}
+                        />
+                    </div>
+                    
+                    {/* Frame Extractor UI */}
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-zinc-300">关键帧 (用于配图)</h4>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); extractKeyframes(); }}
+                            disabled={isExtractingFrames}
+                            className="flex items-center gap-2 text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-white transition-colors"
+                        >
+                            {isExtractingFrames ? <Loader2 className="w-3 h-3 animate-spin"/> : <Scissors className="w-3 h-3" />}
+                            {extractedFrames.length > 0 ? '重新抽取' : '智能抽取关键帧'}
+                        </button>
+                    </div>
+                    
+                    {extractedFrames.length > 0 && (
+                        <div className="grid grid-cols-5 gap-2">
+                            {extractedFrames.map((frame, idx) => (
+                                <img key={idx} src={frame} className="w-full aspect-video object-cover rounded border border-zinc-700" alt={`Frame ${idx}`} />
+                            ))}
+                        </div>
+                    )}
                 </div>
               ) : (
                 <>
                   <Upload className="w-12 h-12 mb-4 text-indigo-500" />
                   <h3 className="text-lg font-medium text-white">点击上传视频文件</h3>
-                  <p className="text-sm mt-2">支持 MP4, MOV (仅用于提取画面，不占用流量)</p>
+                  <p className="text-sm mt-2">支持 MP4, MOV (推荐 50MB 以内)</p>
                 </>
               )}
             </div>
 
             <div className="space-y-3">
-               <label className="text-sm font-bold text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-indigo-400" />
-                  视频内容描述 / 文案
-               </label>
+               <div className="flex justify-between items-end">
+                   <label className="text-sm font-bold text-white flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-indigo-400" />
+                      字幕 / 文案 (用于 AI 分析)
+                   </label>
+                   <button onClick={cleanTranscript} className="text-xs text-indigo-400 hover:text-white flex items-center gap-1">
+                       <Eraser className="w-3 h-3" /> 一键清洗格式
+                   </button>
+               </div>
                <textarea 
                   className="w-full h-32 bg-zinc-950 border border-zinc-700 rounded-xl p-4 text-zinc-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none"
-                  placeholder={`请粘贴视频的文案，或者简单描述视频讲了什么。\nAI 将根据这段文字提取金句。`}
+                  placeholder={`请粘贴视频字幕或文案。\n点击右上角“清洗”可去除时间戳(如 00:12)和空行。`}
                   value={videoContext}
                   onChange={(e) => setVideoContext(e.target.value)}
                />
@@ -236,30 +317,18 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
         {/* MODE 3: SEARCH (Enhanced) */}
         {activeTab === 'SEARCH' && (
           <div className="space-y-6 animate-fade-in flex flex-col h-full">
-             
-             {/* Sub-platform Selector */}
              <div className="flex justify-center gap-3 mb-2">
-                 <button 
-                    onClick={() => setSearchPlatform('X')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${searchPlatform === 'X' ? 'bg-black border-white text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}
-                 >
+                 <button onClick={() => setSearchPlatform('X')} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${searchPlatform === 'X' ? 'bg-black border-white text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}>
                     <Twitter className="w-4 h-4" /> X (推特)
                  </button>
-                 <button 
-                    onClick={() => setSearchPlatform('YOUTUBE')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${searchPlatform === 'YOUTUBE' ? 'bg-red-600 border-red-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}
-                 >
+                 <button onClick={() => setSearchPlatform('YOUTUBE')} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${searchPlatform === 'YOUTUBE' ? 'bg-red-600 border-red-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}>
                     <Youtube className="w-4 h-4" /> YouTube
                  </button>
-                 <button 
-                    onClick={() => setSearchPlatform('WEB')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${searchPlatform === 'WEB' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}
-                 >
+                 <button onClick={() => setSearchPlatform('WEB')} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${searchPlatform === 'WEB' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}>
                     <Globe className="w-4 h-4" /> 全网搜索
                  </button>
              </div>
 
-             {/* Search Bar */}
              <div className="max-w-2xl mx-auto w-full relative shrink-0">
                 <input 
                   type="text" 
@@ -278,7 +347,6 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
                 </button>
              </div>
 
-             {/* Search Results Area */}
              <div className="flex-1 min-h-[300px] bg-zinc-950/50 rounded-2xl border border-zinc-800 p-4 overflow-y-auto custom-scrollbar">
                 {isSearching ? (
                     <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3">
@@ -330,7 +398,7 @@ const InputStep: React.FC<InputStepProps> = ({ onNext }) => {
           </div>
         )}
 
-        {/* Footer Action */}
+        {/* Footer */}
         <div className="mt-auto pt-8 flex justify-end border-t border-zinc-800/50">
             <button 
               onClick={handleSubmit}

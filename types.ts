@@ -1,5 +1,5 @@
 export enum AppStep {
-  API_KEY_INPUT = 'API_KEY_INPUT', // New initial step
+  API_KEY_INPUT = 'API_KEY_INPUT',
   INPUT = 'INPUT',
   PROCESSING_TEXT = 'PROCESSING_TEXT',
   REVIEW_TEXT = 'REVIEW_TEXT',

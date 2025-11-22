@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { ContentSummary } from '../types';
-import { Edit3, Check, Quote, List, Sparkles } from 'lucide-react';
+import { Edit3, Quote, List, Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
+import { regenerateSingleQuote } from '../services/geminiService';
 
 interface TextReviewStepProps {
   summary: ContentSummary;
@@ -11,7 +11,7 @@ interface TextReviewStepProps {
 
 const TextReviewStep: React.FC<TextReviewStepProps> = ({ summary, onNext, onBack }) => {
   const [data, setData] = useState<ContentSummary>(summary);
-  const [editingField, setEditingField] = useState<keyof ContentSummary | null>(null);
+  const [loadingQuoteIdx, setLoadingQuoteIdx] = useState<number | null>(null);
 
   // Helper to update specific fields
   const updateField = (field: keyof ContentSummary, value: any) => {
@@ -22,6 +22,17 @@ const TextReviewStep: React.FC<TextReviewStepProps> = ({ summary, onNext, onBack
     const newPoints = [...data.keyPoints];
     newPoints[index] = val;
     setData(prev => ({ ...prev, keyPoints: newPoints }));
+  };
+
+  const handleRegenerateQuote = async (index: number) => {
+      setLoadingQuoteIdx(index);
+      const context = data.coreIdea + "\n" + data.keyPoints.join("\n");
+      const newQuote = await regenerateSingleQuote(context);
+      
+      const newQuotes = [...data.goldenQuotes];
+      newQuotes[index].text = newQuote;
+      setData(prev => ({...prev, goldenQuotes: newQuotes}));
+      setLoadingQuoteIdx(null);
   };
 
   return (
@@ -84,8 +95,19 @@ const TextReviewStep: React.FC<TextReviewStepProps> = ({ summary, onNext, onBack
                 </div>
                 <div className="space-y-3">
                     {data.goldenQuotes.map((q, idx) => (
-                        <div key={idx} className="flex gap-3 bg-zinc-950/50 p-3 rounded-lg border border-zinc-800">
-                             <div className="text-xs text-zinc-500 font-mono pt-1">{q.timestamp}</div>
+                        <div key={idx} className="relative gap-3 bg-zinc-950/50 p-3 rounded-lg border border-zinc-800 group">
+                             <div className="flex justify-between items-start mb-1">
+                                 <div className="text-xs text-zinc-500 font-mono">{q.timestamp}</div>
+                                 <button 
+                                    onClick={() => handleRegenerateQuote(idx)}
+                                    disabled={loadingQuoteIdx === idx}
+                                    className="text-xs text-zinc-600 hover:text-indigo-400 flex items-center gap-1"
+                                    title="AI 换一句"
+                                 >
+                                     <RefreshCw className={`w-3 h-3 ${loadingQuoteIdx === idx ? 'animate-spin' : ''}`} />
+                                     换一句
+                                 </button>
+                             </div>
                              <textarea
                                 className="w-full bg-transparent text-zinc-300 italic text-sm resize-none focus:outline-none"
                                 rows={2}
@@ -109,19 +131,30 @@ const TextReviewStep: React.FC<TextReviewStepProps> = ({ summary, onNext, onBack
                 <h3 className="font-semibold text-white">知识点总结</h3>
              </div>
              <div className="space-y-4">
-                {data.keyPoints.map((point, idx) => (
-                    <div key={idx} className="flex gap-3 group">
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-bold border border-purple-500/30">
-                            {idx + 1}
+                {data.keyPoints.map((point, idx) => {
+                    const isTooLong = point.length > 25;
+                    return (
+                        <div key={idx} className="flex gap-3 group flex-col">
+                            <div className="flex gap-3 items-start">
+                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-bold border border-purple-500/30 mt-1">
+                                    {idx + 1}
+                                </div>
+                                <textarea
+                                    className="w-full bg-transparent text-zinc-300 text-sm resize-none focus:outline-none border-b border-transparent focus:border-purple-500/50 pb-1 leading-relaxed"
+                                    rows={3}
+                                    value={point}
+                                    onChange={(e) => handlePointChange(idx, e.target.value)}
+                                />
+                            </div>
+                            {isTooLong && (
+                                <div className="ml-9 flex items-center gap-1 text-[10px] text-yellow-500/80">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    字数稍多，可能会导致排版拥挤
+                                </div>
+                            )}
                         </div>
-                        <textarea
-                            className="w-full bg-transparent text-zinc-300 text-sm resize-none focus:outline-none border-b border-transparent focus:border-purple-500/50 pb-1 leading-relaxed"
-                            rows={3}
-                            value={point}
-                            onChange={(e) => handlePointChange(idx, e.target.value)}
-                        />
-                    </div>
-                ))}
+                    );
+                })}
              </div>
         </div>
       </div>
