@@ -509,14 +509,14 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // 6. POLAROID
+    // 6. POLAROID - Fixed Overflow
     if (infoStyle === 'POLAROID') {
         return (
             <div className="w-full h-full bg-zinc-200 flex flex-col p-6 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-50"></div>
                 
-                <DeletableWidget id="polaroid-hero" className="w-full rotate-2 mt-4 relative z-10" isHidden={hiddenFields["polaroid-hero"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-hero"} onSelect={(id)=>setSelectedElementId(id)}>
-                    <div className="bg-white p-3 pb-10 shadow-xl shadow-black/10">
+                <DeletableWidget id="polaroid-hero" className="w-full mt-4 relative z-10" isHidden={hiddenFields["polaroid-hero"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-hero"} onSelect={(id)=>setSelectedElementId(id)}>
+                    <div className="bg-white p-3 pb-10 shadow-xl shadow-black/10 transform rotate-2">
                         <div className="aspect-video bg-zinc-100 overflow-hidden grayscale hover:grayscale-0 transition-all duration-500">
                              <EditableImage seedKey="hero" className="w-full h-full" />
                         </div>
@@ -526,8 +526,8 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                     </div>
                 </DeletableWidget>
 
-                <DeletableWidget id="polaroid-list" className="w-full mt-8 -rotate-1 relative z-10" isHidden={hiddenFields["polaroid-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-list"} onSelect={(id)=>setSelectedElementId(id)}>
-                     <div className="bg-white p-6 shadow-lg shadow-black/5">
+                <DeletableWidget id="polaroid-list" className="w-full mt-8 relative z-10" isHidden={hiddenFields["polaroid-list"]} onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} isSelected={selectedElementId==="polaroid-list"} onSelect={(id)=>setSelectedElementId(id)}>
+                     <div className="bg-white p-6 shadow-lg shadow-black/5 transform -rotate-1">
                         <div className="space-y-3">
                              {localSummary.keyPoints.slice(0,3).map((point, i) => (
                                  <div key={i} className="flex gap-2 items-start border-b border-dashed border-zinc-200 pb-2">
@@ -644,10 +644,10 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
         );
     }
 
-    // 10. LITERATURE (New Style)
+    // 10. LITERATURE (New Style) - Fixed Overflow
     if (infoStyle === 'LITERATURE') {
         return (
-            <div className="w-full h-full relative flex flex-col bg-black">
+            <div className="w-full h-full relative flex flex-col bg-black overflow-hidden">
                 {/* Background Hero - The Paper */}
                 <div className="absolute inset-0">
                     <EditableImage seedKey="hero" className="w-full h-full" />
@@ -659,7 +659,7 @@ const ImageGenerationStep: React.FC<ImageGenerationStepProps> = ({ summary, meta
                 {/* Content Container */}
                 <DeletableWidget 
                     id="lit-container" 
-                    className="absolute bottom-0 left-0 right-0 p-8 flex flex-col gap-8 z-10"
+                    className="absolute bottom-0 left-0 right-0 p-8 flex flex-col gap-8 z-10 w-full"
                     isHidden={hiddenFields["lit-container"]} 
                     onDelete={(id)=>setHiddenFields({...hiddenFields, [id]:true})} 
                     isSelected={selectedElementId==="lit-container"} 

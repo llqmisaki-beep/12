@@ -1,28 +1,20 @@
 import { GoogleGenAI, Type, Schema, Tool } from "@google/genai";
 import { ContentSummary, InputSourceType, SearchPlatform, SearchResultItem } from "../types";
 
-// Helper to get the client with the best available key
 const getClient = (customKey?: string) => {
-  // Priority: Custom Key (from validation) -> LocalStorage -> Env Var
   const storedKey = typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key') : null;
   const apiKey = customKey || storedKey || process.env.API_KEY;
 
   if (!apiKey) {
     console.warn("API Key not found. Using mock data where applicable.");
-    // Return a client with a dummy key to prevent immediate instantiation errors, 
-    // but calls will fail or need mock handling.
     return new GoogleGenAI({ apiKey: 'dummy-key' });
   }
   return new GoogleGenAI({ apiKey });
 };
 
-/**
- * Validates the API key by making a lightweight call.
- */
 export const validateApiKey = async (apiKey: string): Promise<boolean> => {
   try {
     const client = new GoogleGenAI({ apiKey });
-    // Simple test generation to verify key validity
     await client.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: 'test',
@@ -51,7 +43,7 @@ const summarySchema: Schema = {
       },
       description: "1-2 impactful quotes.",
     },
-    searchImageUrls: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Extracted image URLs." }
+    searchImageUrls: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Valid image URLs extracted from the search results." }
   },
   required: ["title", "coreIdea", "keyPoints", "goldenQuotes"],
 };
@@ -61,7 +53,6 @@ export const searchTopic = async (query: string, platform: SearchPlatform): Prom
   const hasKey = !!(typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key') : process.env.API_KEY);
 
   if (!hasKey) {
-     // Mock data fallback
      return [
          { id: '1', title: '演示数据：未配置 API Key', snippet: '请在首页输入有效的 Google Gemini API Key。', url: '#', source: 'System' },
          { id: '2', title: `[模拟] 关于 "${query}" 的 ${platform} 热门讨论`, snippet: '这是模拟搜索结果。配置 Key 后将连接真实 API。', url: '#', source: platform },
@@ -132,7 +123,9 @@ export const generateContentSummary = async (input: string, sourceType: InputSou
       prompt = `
       Task: Analyze the search results and create a viral summary for XiaoHongShu.
       Input: ${input}
-      Requirements: Catchy title, core idea, 3-5 key points, 1-2 quotes. Extract image URLs if any.
+      Requirements: 
+      1. Catchy title, core idea, 3-5 key points, 1-2 quotes. 
+      2. CRITICAL: Extract any valid image URLs found in the search content (e.g. from og:image, news thumbnails) and put them into 'searchImageUrls'.
       Output: JSON string matching structure: { title, coreIdea, keyPoints, goldenQuotes, searchImageUrls }
       NO Markdown.
       `;
