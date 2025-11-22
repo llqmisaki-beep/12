@@ -1,4 +1,5 @@
 export enum AppStep {
+  API_KEY_INPUT = 'API_KEY_INPUT', // New initial step
   INPUT = 'INPUT',
   PROCESSING_TEXT = 'PROCESSING_TEXT',
   REVIEW_TEXT = 'REVIEW_TEXT',
@@ -8,10 +9,8 @@ export enum AppStep {
 
 export type InputSourceType = 'VIDEO' | 'IMAGES' | 'SEARCH';
 
-// New: Search Platform types
 export type SearchPlatform = 'X' | 'YOUTUBE' | 'WEB';
 
-// New: Search Result Item structure
 export interface SearchResultItem {
   id: string;
   title: string;
@@ -22,7 +21,7 @@ export interface SearchResultItem {
 
 export interface VideoMetadata {
   sourceType: InputSourceType;
-  searchPlatform?: SearchPlatform; // Track which platform was used
+  searchPlatform?: SearchPlatform;
   url?: string; 
   fileUrl?: string; 
   uploadedImages?: string[]; 
@@ -42,7 +41,7 @@ export interface ContentSummary {
   coreIdea: string; 
   keyPoints: string[]; 
   goldenQuotes: Quote[]; 
-  searchImageUrls?: string[]; // New: Images extracted from search
+  searchImageUrls?: string[]; 
 }
 
 export interface Quote {

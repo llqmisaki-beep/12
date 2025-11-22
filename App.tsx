@@ -1,18 +1,31 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppStep, VideoMetadata, TrimRange, ContentSummary } from './types';
 import InputStep from './components/InputStep';
 import TextReviewStep from './components/TextReviewStep';
 import ImageGenerationStep from './components/ImageGenerationStep';
+import ApiKeyInputStep from './components/ApiKeyInputStep';
 import { generateContentSummary } from './services/geminiService';
 import { Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [step, setStep] = useState<AppStep>(AppStep.INPUT);
+  const [step, setStep] = useState<AppStep>(AppStep.API_KEY_INPUT); // Start with API Key check
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [trimRange, setTrimRange] = useState<TrimRange>({ start: 0, end: 100 });
   const [summary, setSummary] = useState<ContentSummary | null>(null);
   
+  // Check for API Key on load
+  useEffect(() => {
+    const storedKey = localStorage.getItem('gemini_api_key');
+    if (storedKey || process.env.API_KEY) {
+        // If key exists in env or local storage, skip input step
+        setStep(AppStep.INPUT);
+    }
+  }, []);
+
+  const handleApiKeyComplete = () => {
+      setStep(AppStep.INPUT);
+  };
+
   const handleInputComplete = async (meta: VideoMetadata, trim: TrimRange, transcript: string) => {
     setMetadata(meta);
     setTrimRange(trim);
@@ -23,13 +36,12 @@ const App: React.FC = () => {
          throw new Error("No content provided");
       }
 
-      // Pass sourceType to service to decide if it should use text analysis or search tool
       const aiResult = await generateContentSummary(transcript, meta.sourceType);
       setSummary(aiResult);
       setStep(AppStep.REVIEW_TEXT);
     } catch (error) {
       console.error(error);
-      alert("AI 处理失败，请检查网络或 Key 配置。");
+      alert("AI 处理失败，请检查网络或 API Key 是否有效。");
       setStep(AppStep.INPUT);
     }
   };
@@ -48,6 +60,14 @@ const App: React.FC = () => {
     setSummary(null);
   };
 
+  // Navbar Step Indicator Helper
+  const getStepColor = (targetStep: AppStep) => {
+      const order = [AppStep.API_KEY_INPUT, AppStep.INPUT, AppStep.PROCESSING_TEXT, AppStep.REVIEW_TEXT, AppStep.GENERATING_IMAGES, AppStep.RESULT_EDITOR];
+      const currentIndex = order.indexOf(step);
+      const targetIndex = order.indexOf(targetStep);
+      return currentIndex >= targetIndex ? 'bg-indigo-500' : 'bg-zinc-800';
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30">
       <nav className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
@@ -58,16 +78,23 @@ const App: React.FC = () => {
             </div>
             <span className="font-bold text-xl tracking-tight">ClipEssence AI</span>
           </div>
-          <div className="flex gap-2">
-             <div className={`h-2 w-2 rounded-full ${step === AppStep.INPUT ? 'bg-indigo-500' : 'bg-zinc-800'}`}></div>
-             <div className={`h-2 w-2 rounded-full ${step === AppStep.REVIEW_TEXT ? 'bg-indigo-500' : 'bg-zinc-800'}`}></div>
-             <div className={`h-2 w-2 rounded-full ${step === AppStep.RESULT_EDITOR ? 'bg-indigo-500' : 'bg-zinc-800'}`}></div>
-          </div>
+          
+          {step !== AppStep.API_KEY_INPUT && (
+            <div className="flex gap-2">
+                <div className={`h-2 w-2 rounded-full ${getStepColor(AppStep.INPUT)}`}></div>
+                <div className={`h-2 w-2 rounded-full ${getStepColor(AppStep.REVIEW_TEXT)}`}></div>
+                <div className={`h-2 w-2 rounded-full ${getStepColor(AppStep.RESULT_EDITOR)}`}></div>
+            </div>
+          )}
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         
+        {step === AppStep.API_KEY_INPUT && (
+            <ApiKeyInputStep onComplete={handleApiKeyComplete} />
+        )}
+
         {step === AppStep.INPUT && (
           <InputStep onNext={handleInputComplete} />
         )}
